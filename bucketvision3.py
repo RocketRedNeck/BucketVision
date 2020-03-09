@@ -128,7 +128,7 @@ bvTable.putString("BucketVisionState","Starting")
 
 # Make the cameraMode an auto updating listener from the network table
 camMode = bvTable.getAutoUpdateValue('CurrentCam','frontCam') # 'frontcam' or 'rearcam'
-frontCamMode = bvTable.getAutoUpdateValue('FrontCamMode', 'gears')
+frontCamMode = bvTable.getAutoUpdateValue('FrontCamMode', 'nada')
 alliance = bvTable.getAutoUpdateValue('allianceColor','red')   # default until chooser returns a value
 location = bvTable.getAutoUpdateValue('allianceLocation',1)
 
@@ -160,8 +160,16 @@ FRONT_CAM_GEAR_EXPOSURE = 1
 FRONT_CAM_NORMAL_EXPOSURE = -1   # Camera default
 
 # Declare fps to 30 because explicit is good
-frontCam = BucketCapture(name="FrontCam",src=0,width=320,height=240,exposure=FRONT_CAM_GEAR_EXPOSURE, set_fps=30).start()    # start low for gears
-#backCam = BucketCapture(name="BackCam",src=1,width=320,height=240,exposure=FRONT_CAM_GEAR_EXPOSURE, set_fps=30).start()    # start low for gears
+frontCam = BucketCapture(name="FrontCam",\
+                        #src='/dev/v4l/by-id/usb-HD_Camera_Manufacturer_HD_USB_Camera-video-index0',\
+                        src='/dev/v4l/by-id/usb-HD_Camera_Manufacturer_USB_2.0_Camera-video-index0',\
+                        #src='/dev/v4l/by-id/usb-OmniVision_Technologies__Inc._USB_Camera-B4.09.24.1-video-index0',\
+                        #src='/dev/v4l/by-id/usb-Microsoft_Microsoft®_LifeCam_Cinema_TM_-video-index0',\
+                        width=320,\
+                        height=240,\
+                        exposure=10,\
+                        set_fps=30).start()
+#backCam = BucketCapture(name="BackCam",src=1,width=320,height=240,exposure=FRONT_CAM_GEAR_EXPOSURE, set_fps=30).start()
 
 print("Waiting for BucketCapture to start...")
 while ((frontCam.isStopped() == True)):
@@ -186,7 +194,7 @@ pipes = {'nada'  : nada,
          'balls' : balls,
          'gears'  : gears}
 
-frontProcessor = BucketProcessor(frontCam,pipes,'gears').start()
+frontProcessor = BucketProcessor(frontCam,pipes,'nada').start()
 #backProcessor = BucketProcessor(backCam,pipes,'nada').start()
 
 
@@ -196,10 +204,6 @@ while ((frontProcessor.isStopped() == True)):
 #while ((backProcessor.isStopped() == True)):
 #    time.sleep(0.001)
 print("BucketProcessors appear online!")
-
-# Continue feeding display or streams in foreground told to stop
-#fps = FrameRate()   # Keep track of display rate  TODO: Thread that too!
-#fps.start()
 
 # Loop forever displaying the images for initial testing
 #
@@ -244,7 +248,6 @@ while (True):
         nextTime = nextTime + 1
         runTime = runTime + 1
         bvTable.putNumber("BucketVisionTime",runTime)
-        #print("BucketVisiontime = %d" % runTime)
 
 ##    if (frontCamMode.value == 'gearLift'):
 ##        frontProcessor.updateSelection('gearLift')
@@ -253,11 +256,12 @@ while (True):
 ##        frontProcessor.updateSelection(alliance.value + "Boiler")
 ##        frontCam.updateExposure(FRONT_CAM_NORMAL_EXPOSURE)
 
-    # Monitor network tables for commands to relay to processors and servers
-    key = cv2.waitKey(100)
+    if (type(display.frame) != type(None)):
+        cv2.imshow('main',display.frame)
+        key = cv2.waitKey(1)
+        frontCam.processUserCommand(key)
+        
 
-##    if (frontCam.processUserCommand(key) == True):
-##        break
         
 # NOTE: NOTE: NOTE:
 # Sometimes the exit gets messed up, but for now we just don't care
@@ -265,11 +269,13 @@ while (True):
 #stop the bucket server and processors
 
 frontProcessor.stop()      # stop this first to make the server exit
-
+#backProcessor.stop()
 
 print("Waiting for BucketProcessors to stop...")
 while ((frontProcessor.isStopped() == False)):
     time.sleep(0.001)
+#while ((backProcessor.isStopped() == False)):
+#    time.sleep(0.001)
 print("BucketProcessors appear to have stopped.")
 
 display.stop()
@@ -281,10 +287,13 @@ print("Display appears to have stopped.")
 
 #stop the camera capture
 frontCam.stop()
+#backCam.stop()
 
 print("Waiting for BucketCaptures to stop...")
 while ((frontCam.isStopped() == False)):
     time.sleep(0.001)
+# while ((backCam.isStopped() == False)):
+#     time.sleep(0.001)
 print("BucketCaptures appears to have stopped.")
  
 # do a bit of cleanup

@@ -2,6 +2,7 @@ import threading
 import logging
 
 import cv2
+from cv2display import Cv2Display
 
 from processimage import ProcessImage
 

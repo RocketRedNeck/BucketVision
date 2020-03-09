@@ -39,6 +39,7 @@ class BucketDisplay:
         self.stopped = False
         self.fps.start()
         
+        last_count = 0
         while True:
             # if the thread indicator variable is set, stop the thread
             if (self._stop == True):
@@ -62,13 +63,14 @@ class BucketDisplay:
             self.duration.start()
             self.fps.update()
 
-            if (isNew == True):
-
+            if (count != last_count):
+                
+                last_count = count
                 camFps = cameraSelection.fps.fps()
                 procFps = processorSelection.fps.fps()
                 procDuration = processorSelection.duration.duration()
 
-                cv2.putText(img,"{:.1f}".format(camFps),(0,20),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)
+                cv2.putText(img,"{:.1f}".format(camFps)+ " : " + str(cameraSelection.count)+ " : " + str(cameraSelection.exposure),(0,20),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)
                 if (procFps != 0.0):
                     cv2.putText(img,"{:.1f}".format(procFps) + " : {:.0f}".format(100 * procDuration * procFps) + "%",(0,40),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)
                 cv2.putText(img,"{:.1f}".format(self.fps.fps()),(0,60),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)
@@ -76,14 +78,9 @@ class BucketDisplay:
                 cv2.putText(img,camModeValue,(0, 80),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)
                 cv2.putText(img,processorSelection.ipselection,(0,100),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)                
 
-                cameraSelection.outstream.putFrame(img)
+                self.frame = img
               
-            self.duration.update()
-            delta = (1.0/15.0) - self.duration.elapsed()
-            if delta > 0:
-                pass
-            time.sleep(delta);
-                
+            self.duration.update()                
                 
         print("BucketDisplay for " + self.name + " STOPPING")
           

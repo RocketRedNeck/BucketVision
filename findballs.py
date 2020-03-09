@@ -29,16 +29,19 @@ class FindBalls:
         imagehsv = cv2.cvtColor(source0, cv2.COLOR_BGR2HSV)
         thresh2 = cv2.inRange(imagehsv, self.starthsv,  self.endhsv)
         threshmask = cv2.bitwise_and(thresh1, thresh1, mask = thresh2)
-        (_, contours, _) = cv2.findContours(threshmask.copy(), cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
+
+        # OpenCV 2 or 4
+        (contours, _) = cv2.findContours(threshmask.copy(), cv2.RETR_EXTERNAL,cv2.CHAIN_APPROX_SIMPLE)
         
         contours_area = []
 
         # calculate area and filter into new array
-        for con in contours:
-                area = cv2.contourArea(con)
-                if 35 < area:
-                        contours_area.append(con)
-        print(len(contours_area))      
+        if type(contours) != type(None):
+            for con in contours:
+                    area = cv2.contourArea(con)
+                    if 35 < area:
+                            contours_area.append(con)
+     
         balls = source0
 
         for con in contours_area:

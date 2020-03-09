@@ -19,8 +19,8 @@ if __name__ == '__main__':
 
 	args = vars(parser.parse_args())
 
-	if not args['test']:
-		from csdisplay import CSDisplay
+	# if not args['test']:
+	# 	from csdisplay import CSDisplay
 
 	NetworkTables.initialize(server=args['ip_address'])
 
@@ -34,12 +34,12 @@ if __name__ == '__main__':
 	proc1 = AngryProcesses(frontCamera, network_table=CameraTable)
 	proc1.start()
 
-	if args['test']:
-		window_display = Cv2Display(source=proc1)
-		window_display.start()
-	else:
-		cs_display = CSDisplay(source=proc1)
-		cs_display.start()
+	#if args['test']:
+	window_display = Cv2Display(source=proc1)
+	window_display.start()
+	#else:
+	#	cs_display = CSDisplay(source=proc1)
+	#	cs_display.start()
 
 	while True:
 		pass

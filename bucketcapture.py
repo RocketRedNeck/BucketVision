@@ -12,9 +12,6 @@ Created on Tue Jan 24 20:46:25 2017
 
 import cv2
 
-from cscore import CameraServer
-from cscore import VideoMode
-
 from subprocess import call
 from threading import Lock
 from threading import Thread
@@ -23,6 +20,7 @@ from threading import Condition
 import numpy as np
 
 import platform
+import subprocess
 
 # import our classes
 
@@ -79,30 +77,88 @@ class BucketCapture:
 
         lastExposure = self.exposure
 
-        cs = CameraServer.getInstance()
-        cs.enableLogging()
+        cmd = ['v4l2-ctl', '--device='+self.src,'--list-formats-ext']
+        returned_output = subprocess.check_output(cmd)
+        print(returned_output.decode("utf-8"))
 
-        self.camera = cs.startAutomaticCapture(dev=self.src)
+        cmd = ['v4l2-ctl', '--list-ctrls']
+        returned_output = subprocess.check_output(cmd)
+        print(returned_output.decode("utf-8"))
 
-        self.camera.setResolution(self.width, self.height)
-        self.camera.setPixelFormat(VideoMode.PixelFormat.kYUYV)
-        self.camera.setFPS(self.set_fps)
-        self.camera.setExposureManual(self.exposure)
-        self.camera.setBrightness(1)
-        p = self.camera.enumerateVideoModes()
-        for pi in p:
-            print(pi.fps, pi.height, pi.width, pi.pixelFormat)
+
+        self.camera = cv2.VideoCapture(self.src,apiPreference=cv2.CAP_ANY)
+
+        # OpenCV VideoCapture properties that can be set()
+        # CV_CAP_PROP_POS_MSEC Current position of the video file in milliseconds.
+        # CV_CAP_PROP_POS_FRAMES 0-based index of the frame to be decoded/captured next.
+        # CV_CAP_PROP_POS_AVI_RATIO Relative position of the video file: 0 - start of the film, 1 - end of the film.
+        # CV_CAP_PROP_FRAME_WIDTH Width of the frames in the video stream.
+        # CV_CAP_PROP_FRAME_HEIGHT Height of the frames in the video stream.
+        # CV_CAP_PROP_FPS Frame rate.
+        # CV_CAP_PROP_FOURCC 4-character code of codec.
+        # CV_CAP_PROP_FRAME_COUNT Number of frames in the video file.
+        # CV_CAP_PROP_FORMAT Format of the Mat objects returned by retrieve() .
+        # CV_CAP_PROP_MODE Backend-specific value indicating the current capture mode.
+        # CV_CAP_PROP_BRIGHTNESS Brightness of the image (only for cameras).
+        # CV_CAP_PROP_CONTRAST Contrast of the image (only for cameras).
+        # CV_CAP_PROP_SATURATION Saturation of the image (only for cameras).
+        # CV_CAP_PROP_HUE Hue of the image (only for cameras).
+        # CV_CAP_PROP_GAIN Gain of the image (only for cameras).
+        # CV_CAP_PROP_EXPOSURE Exposure (only for cameras).
+        # CV_CAP_PROP_CONVERT_RGB Boolean flags indicating whether images should be converted to RGB.
+        # CV_CAP_PROP_WHITE_BALANCE_U The U value of the whitebalance setting (note: only supported by DC1394 v 2.x backend currently)
+        # CV_CAP_PROP_WHITE_BALANCE_V The V value of the whitebalance setting (note: only supported by DC1394 v 2.x backend currently)
+        # CV_CAP_PROP_RECTIFICATION Rectification flag for stereo cameras (note: only supported by DC1394 v 2.x backend currently)
+        # CV_CAP_PROP_ISO_SPEED The ISO speed of the camera (note: only supported by DC1394 v 2.x backend currently)
+        # CV_CAP_PROP_BUFFERSIZE Amount of frames stored in internal buffer memory (note: only supported by DC1394 v 2.x backend currently)
+
+        print("SETTINGS: ",self.camera.get(cv2.CAP_PROP_SETTINGS))
+        print("FORMAT: ",self.camera.get(cv2.CAP_PROP_FORMAT))
+        print("MODE:", self.camera.get(cv2.CAP_PROP_MODE))
+        print("CHANNEL:", self.camera.get(cv2.CAP_PROP_CHANNEL))
+        print("AUTOFOCUS:", self.camera.get(cv2.CAP_PROP_AUTOFOCUS))
+        print("AUTOEXP:", self.camera.get(cv2.CAP_PROP_AUTO_EXPOSURE))
+        print("PIXFMT:",self.camera.get(cv2.CAP_PROP_CODEC_PIXEL_FORMAT))
+        cmd = ['v4l2-ctl', '-V']
+        returned_output = subprocess.check_output(cmd)
+        print(returned_output.decode("utf-8"))
+
+        # print("----------------------")
+        # self.camera.set(cv2.CAP_PROP_CHANNEL,1)
+        # self.camera.set(cv2.CAP_PROP_AUTOFOCUS, 1)
+        self.camera.set(cv2.CAP_PROP_AUTO_EXPOSURE, 1)
+        # print("CHANNEL:", self.camera.get(cv2.CAP_PROP_CHANNEL))
+        # print("AUTOFOCUS:", self.camera.get(cv2.CAP_PROP_AUTOFOCUS))
+        # print("AUTOEXP:", self.camera.get(cv2.CAP_PROP_AUTO_EXPOSURE))
+
+
+        self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+        self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+        print(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH), self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+ 
+        # cmd = ['v4l2-ctl', '--set-fmt-video=pixelformat=MJPG']
+        # returned_output = subprocess.check_output(cmd)
+        # print(returned_output.decode("utf-8"))
+        cmd = ['v4l2-ctl', '-V']
+        returned_output = subprocess.check_output(cmd)
+        print(returned_output.decode("utf-8"))
+        print(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH), self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+
+        # self.camera.setPixelFormat(VideoMode.PixelFormat.kYUYV)
+        
+        self.camera.set(cv2.CAP_PROP_FPS, self.set_fps)
+
+        # self.camera.setExposureManual(self.exposure)
+        self.camera.set(cv2.CAP_PROP_EXPOSURE, self.exposure)
+
+        # self.camera.setBrightness(1)
+        self.camera.set(cv2.CAP_PROP_BRIGHTNESS, 1)
+
+        # p = self.camera.enumerateVideoModes()
+        # for pi in p:
+        #     print(pi.fps, pi.height, pi.width, pi.pixelFormat)
             
-
-        # Get a CvSink. This will capture images from the camera
-        cvSink = cs.getVideo()
-
-        # (optional) Setup a CvSource. This will send images back to the Dashboard
-        self.outstream = cs.putVideo(self.name, self.width, self.height)
-
-        # Allocating new images is very expensive, always try to preallocate
-        img = np.zeros(shape=(self.height, self.width, 3), dtype=np.uint8)    
-
+        count = 0
         while True:
             # if the thread indicator variable is set, stop the thread
             if (self._stop == True):
@@ -116,15 +172,18 @@ class BucketCapture:
                 
             # Tell the CvSink to grab a frame from the camera and put it
             # in the source image.  If there is an error notify the output.
-            time, img = cvSink.grabFrame(img)
-            if time == 0:
+            #time, img = cvSink.grabFrame(img)
+            ret_val, img = self.camera.read()
+
+            if ret_val == 0:
                 self._grabbed = False
                 # Send the output the error.
-                self.outstream.notifyError(cvSink.getError());
+                #self.outstream.notifyError(cvSink.getError())
                 # skip the rest of the current iteration
                 continue
 
-            self._grabbed = True                
+            self._grabbed = True
+            self.count = self.count
             
             self.duration.start()
             self.fps.update()
@@ -164,55 +223,56 @@ class BucketCapture:
         else:
             return (self.outFrame, self.outCount, False)
 
-##    def processUserCommand(self, key):
-##        if key == ord('x'):
-##            return True
-##        elif key == ord('w'):
-##            self.brightness+=1
-##            self.stream.set(cv2.CAP_PROP_BRIGHTNESS,self.brightness)
-##            print("BRIGHT = " + str(self.brightness))
-##        elif key == ord('s'):
-##            self.brightness-=1
-##            self.stream.set(cv2.CAP_PROP_BRIGHTNESS,self.brightness)
-##            print("BRIGHT = " + str(self.brightness))
-##        elif key == ord('d'):
-##            self.contrast+=1
-##            self.stream.set(cv2.CAP_PROP_CONTRAST,self.contrast)
-##            print("CONTRAST = " + str(self.contrast))
-##        elif key == ord('a'):
-##            self.contrast-=1
-##            self.stream.set(cv2.CAP_PROP_CONTRAST,self.contrast)
-##            print("CONTRAST = " + str(self.contrast))
-##        elif key == ord('e'):
-##            self.saturation+=1
-##            self.stream.set(cv2.CAP_PROP_SATURATION,self.saturation)
-##            print("SATURATION = " + str(self.saturation))
-##        elif key == ord('q'):
-##            self.saturation-=1
-##            self.stream.set(cv2.CAP_PROP_SATURATION,self.saturation)
-##            print("SATURATION = " + str(self.saturation))
-##        elif key == ord('z'):
-##            self.exposure+=1
-##            setExposure(self.exposure)
-##            print("EXPOSURE = " + str(self.exposure))
-##        elif key == ord('c'):
-##            self.exposure-=1
-##            setExposure(self.exposure)
-##            print("EXPOSURE = " + str(self.exposure))
-####        elif key == ord('p'):
-####            self.iso +=1
-####            self.stream.set(cv2.CAP_PROP_ISO_SPEED, self.iso)
-####        elif key == ord('i'):
-####            self.iso -=1
-####            self.stream.set(cv2.CAP_PROP_ISO_SPEED, self.iso)
-##
-##        return False
+    def processUserCommand(self, key):
+        # if key == ord('x'):
+        #     return True
+        # elif key == ord('w'):
+        #     self.brightness+=1
+        #     self.stream.set(cv2.CAP_PROP_BRIGHTNESS,self.brightness)
+        #     print("BRIGHT = " + str(self.brightness))
+        # elif key == ord('s'):
+        #     self.brightness-=1
+        #     self.stream.set(cv2.CAP_PROP_BRIGHTNESS,self.brightness)
+        #     print("BRIGHT = " + str(self.brightness))
+        # elif key == ord('d'):
+        #     self.contrast+=1
+        #     self.stream.set(cv2.CAP_PROP_CONTRAST,self.contrast)
+        #     print("CONTRAST = " + str(self.contrast))
+        # elif key == ord('a'):
+        #     self.contrast-=1
+        #     self.stream.set(cv2.CAP_PROP_CONTRAST,self.contrast)
+        #     print("CONTRAST = " + str(self.contrast))
+        # elif key == ord('e'):
+        #     self.saturation+=1
+        #     self.stream.set(cv2.CAP_PROP_SATURATION,self.saturation)
+        #     print("SATURATION = " + str(self.saturation))
+        # elif key == ord('q'):
+        #     self.saturation-=1
+        #     self.stream.set(cv2.CAP_PROP_SATURATION,self.saturation)
+        #     print("SATURATION = " + str(self.saturation))
+        # el
+        if key == ord('z'):
+            self.exposure = self.exposure - 1
+            self.setExposure()
+            print("EXPOSURE = " + str(self.exposure))
+        elif key == ord('c'):
+            self.exposure = self.exposure + 1
+            self.setExposure()
+            print("EXPOSURE = " + str(self.exposure))
+        # elif key == ord('p'):
+        #     self.iso +=1
+        #     self.stream.set(cv2.CAP_PROP_ISO_SPEED, self.iso)
+        # elif key == ord('i'):
+        #     self.iso -=1
+        #     self.stream.set(cv2.CAP_PROP_ISO_SPEED, self.iso)
+
+        return False
 
     def updateExposure(self, exposure):
         self.exposure = exposure
         
     def setExposure(self):
-        self.camera.setExposureManual(self.exposure);
+        self.camera.set(cv2.CAP_PROP_EXPOSURE, self.exposure)
         pass
     
     def stop(self):
