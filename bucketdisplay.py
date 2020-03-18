@@ -1,5 +1,6 @@
 import cv2
 import time
+import datetime
 from threading import Thread
 
 from framerate import FrameRate
@@ -39,7 +40,6 @@ class BucketDisplay:
         self.stopped = False
         self.fps.start()
         
-        last_count = 0
         while True:
             # if the thread indicator variable is set, stop the thread
             if (self._stop == True):
@@ -59,26 +59,26 @@ class BucketDisplay:
             # otherwise, read the next frame from the stream
             # grab the frame from the threaded video stream
             
-            (img, count, isNew) = processorSelection.read()
+            (img, count, timestamp, isNew) = processorSelection.read()
             self.duration.start()
             self.fps.update()
 
-            if (count != last_count):
-                
-                last_count = count
+            if (count != self.count):
+                self.count = count
                 camFps = cameraSelection.fps.fps()
                 procFps = processorSelection.fps.fps()
                 procDuration = processorSelection.duration.duration()
 
-                cv2.putText(img,"{:.1f}".format(camFps)+ " : " + str(cameraSelection.count)+ " : " + str(cameraSelection.exposure),(0,20),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)
+                cv2.putText(img,timestamp,(0,20),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)
+
+                cv2.putText(img,"CamFPS: {:.1f}".format(camFps)+ " Exp: " + str(cameraSelection.exposure) + " Frame: " + str(self.count),(0,40),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)
                 if (procFps != 0.0):
-                    cv2.putText(img,"{:.1f}".format(procFps) + " : {:.0f}".format(100 * procDuration * procFps) + "%",(0,40),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)
-                cv2.putText(img,"{:.1f}".format(self.fps.fps()),(0,60),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)
+                    cv2.putText(img,"ProcFPS: {:.1f}".format(procFps) + " : {:.0f}".format(100 * procDuration * procFps) + "%",(0,60),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)
 
-                cv2.putText(img,camModeValue,(0, 80),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)
-                cv2.putText(img,processorSelection.ipselection,(0,100),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)                
+                cv2.putText(img,"Cam: " + camModeValue,(0, 80),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)
+                cv2.putText(img,"Proc: " + processorSelection.ipselection,(0,100),cv2.FONT_HERSHEY_PLAIN,1,(0,255,0),1)                
 
-                self.frame = img
+                self.frame = img.copy()
               
             self.duration.update()                
                 

@@ -41,6 +41,7 @@ SOFTWARE.
 
 import cv2
 import time
+import zmq
 
 from subprocess import call
 from threading import Lock
@@ -161,13 +162,15 @@ FRONT_CAM_NORMAL_EXPOSURE = -1   # Camera default
 
 # Declare fps to 30 because explicit is good
 frontCam = BucketCapture(name="FrontCam",\
-                        #src='/dev/v4l/by-id/usb-HD_Camera_Manufacturer_HD_USB_Camera-video-index0',\
-                        src='/dev/v4l/by-id/usb-HD_Camera_Manufacturer_USB_2.0_Camera-video-index0',\
+                        src=1,#src='/dev/v4l/by-id/usb-HD_Camera_Manufacturer_HD_USB_Camera-video-index0',\
+                        #src='/dev/v4l/by-id/usb-HD_Camera_Manufacturer_USB_2.0_Camera-video-index0',\
                         #src='/dev/v4l/by-id/usb-OmniVision_Technologies__Inc._USB_Camera-B4.09.24.1-video-index0',\
                         #src='/dev/v4l/by-id/usb-Microsoft_Microsoft®_LifeCam_Cinema_TM_-video-index0',\
-                        width=320,\
-                        height=240,\
-                        exposure=10,\
+                        # width=1280,\
+                        # height=720,\
+                        width=640,\
+                        height=480,\
+                        exposure=-10,\
                         set_fps=30).start()
 #backCam = BucketCapture(name="BackCam",src=1,width=320,height=240,exposure=FRONT_CAM_GEAR_EXPOSURE, set_fps=30).start()
 
@@ -194,7 +197,7 @@ pipes = {'nada'  : nada,
          'balls' : balls,
          'gears'  : gears}
 
-frontProcessor = BucketProcessor(frontCam,pipes,'nada').start()
+frontProcessor = BucketProcessor(frontCam,pipes,'balls').start()
 #backProcessor = BucketProcessor(backCam,pipes,'nada').start()
 
 
@@ -242,6 +245,17 @@ runTime = 0
 bvTable.putNumber("BucketVisionTime",runTime)
 nextTime = time.time() + 1
 
+videofile = cv2.VideoWriter('FrontCam.avi',cv2.VideoWriter_fourcc('M','J','P','G'), frontCam.set_fps, (frontCam.width,frontCam.height))
+
+last_count = 0
+record = False
+stream = False
+
+context = zmq.Context()
+socket = context.socket(zmq.PUB)
+socket.connect('tcp://localhost:5555')
+
+
 while (True):
 
     if (time.time() > nextTime):
@@ -257,9 +271,26 @@ while (True):
 ##        frontCam.updateExposure(FRONT_CAM_NORMAL_EXPOSURE)
 
     if (type(display.frame) != type(None)):
+        if (last_count != display.count):
+            last_count = display.count
+            if stream == True:
+                encoded, buffer = cv2.imencode('.jpg', display.frame)
+                socket.send(buffer)
+
+            if record == True:
+                videofile.write(display.frame)
+
         cv2.imshow('main',display.frame)
+
         key = cv2.waitKey(1)
-        frontCam.processUserCommand(key)
+        if key == ord('r'):
+            record = not record
+            print("RECORDING = ", record)
+        elif key == ord('t'):
+            stream = not stream
+            print("STREAMING = ", stream)
+        else:
+            frontCam.processUserCommand(key)
         
 
         

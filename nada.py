@@ -15,4 +15,5 @@ class Nada:
         """
         
         # Draw thin line down center of screen
-        cv2.line(source0,((int)(320/2),0),((int)(320/2),240),(0,255,0),1)
+        (h,w,d) = source0.shape
+        cv2.line(source0,((int)(w/2),0),((int)(w/2),h),(0,255,0),1)

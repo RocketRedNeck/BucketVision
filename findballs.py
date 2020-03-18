@@ -10,7 +10,7 @@ class FindBalls:
     def __init__(self):
         """initializes all values to presets or None if need to be set
         """
-        self.f = 1.0
+        self.f = 0.5
         self.hue = [0.0, 61.74061433447099]
         self.sat = [73.38129496402877, 255.0]
         self.val = [215.55755395683454*self.f, 255.0*self.f]
@@ -38,22 +38,22 @@ class FindBalls:
         # calculate area and filter into new array
         if type(contours) != type(None):
             for con in contours:
-                    area = cv2.contourArea(con)
-                    if 35 < area:
-                            contours_area.append(con)
+                area = cv2.contourArea(con)
+                if 35 < area:
+                    contours_area.append(con)
      
         balls = source0
 
         for con in contours_area:
-                (x,y),radius = cv2.minEnclosingCircle(con)
-                center = (int(x),int(y))
-                radius = int(radius)
-                cv2.circle(balls,center,radius,(0,255,0),2)
-                x,y,w,h = cv2.boundingRect(con)
-                cv2.rectangle(balls,(x,y),(x+w,y+h),(255,0,0),2)
-                rect = cv2.minAreaRect(con)
-                box = cv2.boxPoints(rect)
-                box = np.int0(box)
-                cv2.drawContours(balls,[box],0,(0,0,255),2)
+            (x,y),radius = cv2.minEnclosingCircle(con)
+            center = (int(x),int(y))
+            radius = int(radius)
+            cv2.circle(balls,center,radius,(0,255,0),2)
+            x,y,w,h = cv2.boundingRect(con)
+            cv2.rectangle(balls,(x,y),(x+w,y+h),(255,0,0),2)
+            rect = cv2.minAreaRect(con)
+            box = cv2.boxPoints(rect)
+            box = np.int0(box)
+            cv2.drawContours(balls,[box],0,(0,0,255),2)
         
         return balls

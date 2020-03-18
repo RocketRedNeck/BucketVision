@@ -55,7 +55,7 @@ class BucketProcessor:
 
             # otherwise, read the next frame from the stream
             # grab the frame from the threaded video stream
-            (self._frame, count, isNew) = self.stream.read()
+            (self._frame, count, timestamp, isNew) = self.stream.read()
             self.duration.start()
             self.fps.update()
 
@@ -72,9 +72,10 @@ class BucketProcessor:
                 # of the reader
                 self._condition.acquire()
                 self._lock.acquire()
-                self.count = self.count + 1
+                self.count = count
                 self.isNew = isNew
                 self.frame = self._frame
+                self.timestamp = timestamp
                 self._lock.release()
                 self._condition.notifyAll()
                 self._condition.release()
@@ -95,10 +96,11 @@ class BucketProcessor:
         if (self._lock.acquire() == True):
             self.outFrame = self.frame
             self.outCount = self.count
+            self.outTimestamp = self.timestamp
             self._lock.release()
-            return (self.outFrame, self.outCount, True)
+            return (self.outFrame, self.outCount, self.outTimestamp, True)
         else:
-            return (self.outFrame, self.outCount, False)
+            return (self.outFrame, self.outCount, "No Time Stamp", False)
           
     def stop(self):
         # indicate that the thread should be stopped

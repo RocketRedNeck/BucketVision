@@ -165,18 +165,21 @@ img = mpimg.imread("armstrong-trophy-and-naval-court-1862-web.jpg")
 pl.imshow(img)
 
 pl.figure()
-pl.plot(src_x,-src_y,'+',dst_x,-dst_y,'x')
+#0x00C500
+#0xFA00A0
+pl.plot(dst_x,-dst_y,'#00FF00',linestyle=' ',marker='+')
+pl.plot(src_x,-src_y,'#FA00A0',linestyle=' ',marker='+')
 pl.xlabel('X')
 pl.ylabel('Y')
 
-pl.figure()
-pl.plot(src_x,1/(src_x-dst_x),'+')
-pl.xlabel('X')
-pl.ylabel('Z')
+#pl.figure()
+#pl.plot(src_x,1/(src_x-dst_x),'+')
+#pl.xlabel('X')
+#pl.ylabel('Z')
 
 fig = pl.figure()
 ax = fig.add_subplot(111, projection='3d')
-ax.scatter((src_x + dst_x)/2, 1/(src_x-dst_x), -(src_y+dst_y)/2)
+ax.scatter((src_x + dst_x)/2, 10/(src_x-dst_x), -(src_y+dst_y)/2)
 ax.set_xlabel('X Label')
 ax.set_ylabel('Z Label')
 ax.set_zlabel('Y Label')

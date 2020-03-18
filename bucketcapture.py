@@ -17,6 +17,9 @@ from threading import Lock
 from threading import Thread
 from threading import Condition
 
+import platform
+import datetime
+
 import numpy as np
 
 import platform
@@ -41,6 +44,8 @@ class BucketCapture:
         self.duration = FrameDuration()
         self.name = name
         self.exposure = exposure
+        self.iso = 800
+        self.brightness = 1
         self.src = src
         self.width = width
         self.height = height
@@ -52,6 +57,7 @@ class BucketCapture:
 
         self.grabbed = False
         self.frame = None
+        self.timestamp = "timestamp_goes_here"
         self.outFrame = None
         self.count = 0
         self.outCount = self.count
@@ -77,13 +83,14 @@ class BucketCapture:
 
         lastExposure = self.exposure
 
-        cmd = ['v4l2-ctl', '--device='+self.src,'--list-formats-ext']
-        returned_output = subprocess.check_output(cmd)
-        print(returned_output.decode("utf-8"))
+        if platform.system() == "Linux":
+            cmd = ['v4l2-ctl', '--device='+str(self.src),'--list-formats-ext']
+            returned_output = subprocess.check_output(cmd)
+            print(returned_output.decode("utf-8"))
 
-        cmd = ['v4l2-ctl', '--list-ctrls']
-        returned_output = subprocess.check_output(cmd)
-        print(returned_output.decode("utf-8"))
+            cmd = ['v4l2-ctl', '--list-ctrls']
+            returned_output = subprocess.check_output(cmd)
+            print(returned_output.decode("utf-8"))
 
 
         self.camera = cv2.VideoCapture(self.src,apiPreference=cv2.CAP_ANY)
@@ -119,9 +126,11 @@ class BucketCapture:
         print("AUTOFOCUS:", self.camera.get(cv2.CAP_PROP_AUTOFOCUS))
         print("AUTOEXP:", self.camera.get(cv2.CAP_PROP_AUTO_EXPOSURE))
         print("PIXFMT:",self.camera.get(cv2.CAP_PROP_CODEC_PIXEL_FORMAT))
-        cmd = ['v4l2-ctl', '-V']
-        returned_output = subprocess.check_output(cmd)
-        print(returned_output.decode("utf-8"))
+
+        if platform.system() == "Linux":
+            cmd = ['v4l2-ctl', '-V']
+            returned_output = subprocess.check_output(cmd)
+            print(returned_output.decode("utf-8"))
 
         # print("----------------------")
         # self.camera.set(cv2.CAP_PROP_CHANNEL,1)
@@ -139,10 +148,11 @@ class BucketCapture:
         # cmd = ['v4l2-ctl', '--set-fmt-video=pixelformat=MJPG']
         # returned_output = subprocess.check_output(cmd)
         # print(returned_output.decode("utf-8"))
-        cmd = ['v4l2-ctl', '-V']
-        returned_output = subprocess.check_output(cmd)
-        print(returned_output.decode("utf-8"))
-        print(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH), self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        if platform.system() == "Linux":        
+            cmd = ['v4l2-ctl', '-V']
+            returned_output = subprocess.check_output(cmd)
+            print(returned_output.decode("utf-8"))
+            print(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH), self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
 
         # self.camera.setPixelFormat(VideoMode.PixelFormat.kYUYV)
         
@@ -152,7 +162,7 @@ class BucketCapture:
         self.camera.set(cv2.CAP_PROP_EXPOSURE, self.exposure)
 
         # self.camera.setBrightness(1)
-        self.camera.set(cv2.CAP_PROP_BRIGHTNESS, 1)
+        self.camera.set(cv2.CAP_PROP_BRIGHTNESS, self.brightness)
 
         # p = self.camera.enumerateVideoModes()
         # for pi in p:
@@ -174,6 +184,7 @@ class BucketCapture:
             # in the source image.  If there is an error notify the output.
             #time, img = cvSink.grabFrame(img)
             ret_val, img = self.camera.read()
+            timestamp = datetime.datetime.now()    #Close but not exact, need to work out better sync
 
             if ret_val == 0:
                 self._grabbed = False
@@ -195,11 +206,15 @@ class BucketCapture:
             # later we may consider a queue or double buffer to
             # minimize blocking
             if (self._grabbed == True):
+
+                timestamp_string = datetime.datetime.fromtimestamp(timestamp.timestamp(),datetime.timezone.utc).isoformat()
+                
                 self._condition.acquire()
                 self._lock.acquire()
                 self.count = self.count + 1
                 self.grabbed = self._grabbed
                 self.frame = img.copy()
+                self.timestamp = timestamp_string
                 self._lock.release()
                 self._condition.notifyAll()
                 self._condition.release()
@@ -218,22 +233,15 @@ class BucketCapture:
         if (self._lock.acquire() == True):
             self.outFrame = self.frame
             self.outCount = self.count
+            self.outTimestamp = self.timestamp
             self._lock.release()
-            return (self.outFrame, self.outCount, True)
+            return (self.outFrame, self.outCount, self.outTimestamp, True)
         else:
-            return (self.outFrame, self.outCount, False)
+            return (self.outFrame, self.outCount, "NoTimeStamp", False)
 
     def processUserCommand(self, key):
         # if key == ord('x'):
         #     return True
-        # elif key == ord('w'):
-        #     self.brightness+=1
-        #     self.stream.set(cv2.CAP_PROP_BRIGHTNESS,self.brightness)
-        #     print("BRIGHT = " + str(self.brightness))
-        # elif key == ord('s'):
-        #     self.brightness-=1
-        #     self.stream.set(cv2.CAP_PROP_BRIGHTNESS,self.brightness)
-        #     print("BRIGHT = " + str(self.brightness))
         # elif key == ord('d'):
         #     self.contrast+=1
         #     self.stream.set(cv2.CAP_PROP_CONTRAST,self.contrast)
@@ -259,12 +267,22 @@ class BucketCapture:
             self.exposure = self.exposure + 1
             self.setExposure()
             print("EXPOSURE = " + str(self.exposure))
-        # elif key == ord('p'):
-        #     self.iso +=1
-        #     self.stream.set(cv2.CAP_PROP_ISO_SPEED, self.iso)
-        # elif key == ord('i'):
-        #     self.iso -=1
-        #     self.stream.set(cv2.CAP_PROP_ISO_SPEED, self.iso)
+        elif key == ord('w'):
+            self.brightness+=1
+            self.camera.set(cv2.CAP_PROP_BRIGHTNESS,self.brightness)
+            print("BRIGHT = " + str(self.brightness))
+        elif key == ord('s'):
+            self.brightness-=1
+            self.camera.set(cv2.CAP_PROP_BRIGHTNESS,self.brightness)
+            print("BRIGHT = " + str(self.brightness))
+        elif key == ord('p'):
+            self.iso = self.iso + 100
+            self.camera.set(cv2.CAP_PROP_ISO_SPEED, self.iso)
+            print("ISO = " + str(self.iso))
+        elif key == ord('i'):
+            self.iso = self.iso - 100
+            self.camera.set(cv2.CAP_PROP_ISO_SPEED, self.iso)
+            print("ISO = " + str(self.iso))
 
         return False
 
