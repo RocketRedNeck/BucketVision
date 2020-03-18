@@ -34,6 +34,9 @@ class BucketDisplay:
         t.start()
         return self
 
+    def setmode(self,mode):
+        self.mode = mode
+
     def update(self):
         print("BucketDisplay RUNNING")
         # keep looping infinitely until the thread is stopped

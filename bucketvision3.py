@@ -39,17 +39,25 @@ SOFTWARE.
 
 # import the necessary packages
 
-import cv2
+# Create arg parser
+import argparse
+parser = argparse.ArgumentParser()
+
+# Add OPTIONAL IP Address argument
+# Specify with "py bucketvision3.py -ip <viewer address> -p <viewer port> "
+# viewer address = localhost (default)
+# viewer port = 5555 (default)
+parser.add_argument('-ip', '--ip-address', required=False, default='localhost', 
+help='IP Address Of Viewer')
+parser.add_argument('-p', '--port', required=False, default='5555', 
+help='IP Address Of Viewer')
+
+# Parse the args
+args = vars(parser.parse_args())
+
+import cv2      # OpenCV 4.x
 import time
 import zmq
-
-from subprocess import call
-from threading import Lock
-from threading import Thread
-
-from networktables import NetworkTables
-from networktables.util import ChooserControl
-import logging      # Needed if we want to see debug messages from NetworkTables
 
 # import our classes
 
@@ -59,34 +67,7 @@ from bucketcapture import BucketCapture     # Camera capture threads... may rena
 from bucketprocessor import BucketProcessor   # Image processing threads... has same basic structure (may merge classes)
 from bucketdisplay import BucketDisplay
 
-import argparse
-
-# Create arg parser
-parser = argparse.ArgumentParser()
-
-# Add OPTIONAL IP Address argument
-# Specify with "py bucketvision3.py -ip <your address>"
-# '10.41.83.2' is the competition address (default)
-# '10.38.14.2' is typical practice field
-# '10.41.83.215' EXAMPLE Junior 2 radio to PC with OutlineViewer in Server Mode
-# '192.168.0.103' EXAMPLE Home network  
-parser.add_argument('-ip', '--ip-address', required=False, default='10.41.83.2', 
-help='IP Address for NetworkTable Server')
-
-# Parse the args
-args = vars(parser.parse_args())
     
-# Get the IP address as a string
-networkTableServer = args['ip_address']
-print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-print("NETWORK TABLE SERVER: ",networkTableServer)
-print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
-
-
 # Instances of GRIP created pipelines (they usually require some manual manipulation
 # but basically we would pass one or more of these into one or more image processors (threads)
 # to have their respective process(frame) functions called.
@@ -103,35 +84,14 @@ print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
 # as the results can be confused and comingled and simply does not make sense.
 
 from nada import Nada
-from cubes import Cubes
 from faces import Faces
-from gearlift import GearLift
 from findballs import FindBalls
 
 # And so it begins
 print("Starting BUCKET VISION!")
 
-# To see messages from networktables, you must setup logging
-logging.basicConfig(level=logging.DEBUG)
-
-try:
-    NetworkTables.initialize(server=networkTableServer)
-    
-except ValueError as e:
-    print(e)
-    print("\n\n[WARNING]: BucketVision NetworkTable Not Connected!\n\n")
-
-bvTable = NetworkTables.getTable("BucketVision")
-bvTable.putString("BucketVisionState","Starting")
-
 # Auto updating listener should be good for avoiding the need to poll for value explicitly
 # A ChooserControl is also another option
-
-# Make the cameraMode an auto updating listener from the network table
-camMode = bvTable.getAutoUpdateValue('CurrentCam','frontCam') # 'frontcam' or 'rearcam'
-frontCamMode = bvTable.getAutoUpdateValue('FrontCamMode', 'nada')
-alliance = bvTable.getAutoUpdateValue('allianceColor','red')   # default until chooser returns a value
-location = bvTable.getAutoUpdateValue('allianceLocation',1)
 
 # NOTE: NOTE: NOTE
 #
@@ -145,10 +105,8 @@ location = bvTable.getAutoUpdateValue('allianceLocation',1)
 # the exclusive options into a single processor (e.g., look for faces OR pink elephants)
 
 nada = Nada()
-cubes = Cubes()
 faces = Faces()
 balls = FindBalls()
-gears = GearLift(bvTable)
 
 # NOTE: NOTE: NOTE:
 #
@@ -157,28 +115,39 @@ gears = GearLift(bvTable)
 # Our implementation is forced to use v4l2-ctl (Linux) to make the exposure control work because our OpenCV
 # port does not seem to play well with the exposure settings (produces either no answer or causes errors depending
 # on the camera used)
-FRONT_CAM_GEAR_EXPOSURE = 1
-FRONT_CAM_NORMAL_EXPOSURE = -1   # Camera default
+FRONT_CAM_NORMAL_EXPOSURE = -1
+BACK_CAM_NORMAL_EXPOSURE  = -5
+
+width  = 640
+height = 480
+
+sources = {'builtin' : 0,
+           'usb'     : 1,
+           'hdusb'   : '/dev/v4l/by-id/usb-HD_Camera_Manufacturer_HD_USB_Camera-video-index0',
+           'usb2.0'  : '/dev/v4l/by-id/usb-HD_Camera_Manufacturer_USB_2.0_Camera-video-index0',
+           'p3eye'   : '/dev/v4l/by-id/usb-OmniVision_Technologies__Inc._USB_Camera-B4.09.24.1-video-index0',
+           'lifecam' : '/dev/v4l/by-id/usb-Microsoft_Microsoft®_LifeCam_Cinema_TM_-video-index0',
+          }
 
 # Declare fps to 30 because explicit is good
 frontCam = BucketCapture(name="FrontCam",\
-                        src=1,#src='/dev/v4l/by-id/usb-HD_Camera_Manufacturer_HD_USB_Camera-video-index0',\
-                        #src='/dev/v4l/by-id/usb-HD_Camera_Manufacturer_USB_2.0_Camera-video-index0',\
-                        #src='/dev/v4l/by-id/usb-OmniVision_Technologies__Inc._USB_Camera-B4.09.24.1-video-index0',\
-                        #src='/dev/v4l/by-id/usb-Microsoft_Microsoft®_LifeCam_Cinema_TM_-video-index0',\
-                        # width=1280,\
-                        # height=720,\
-                        width=640,\
-                        height=480,\
-                        exposure=-10,\
+                        src=sources['builtin'],\
+                        width=width,\
+                        height=height,\
+                        exposure=FRONT_CAM_NORMAL_EXPOSURE,\
                         set_fps=30).start()
-#backCam = BucketCapture(name="BackCam",src=1,width=320,height=240,exposure=FRONT_CAM_GEAR_EXPOSURE, set_fps=30).start()
+backCam = BucketCapture(name="BackCam",\
+                        src=sources['usb'],\
+                        width=width,\
+                        height=height,\
+                        exposure=BACK_CAM_NORMAL_EXPOSURE,\
+                        set_fps=30).start()
 
 print("Waiting for BucketCapture to start...")
 while ((frontCam.isStopped() == True)):
     time.sleep(0.001)
-#while ((backCam.isStopped() == True)):
-#    time.sleep(0.001)
+while ((backCam.isStopped() == True)):
+    time.sleep(0.001)
     
 print("BucketCapture appears online!")
 
@@ -192,20 +161,19 @@ print("BucketCapture appears online!")
 # being run from multiple threads... so don't do it!)
 
 pipes = {'nada'  : nada,
-         'cubes' : cubes,
          'faces' : faces,
-         'balls' : balls,
-         'gears'  : gears}
-
-frontProcessor = BucketProcessor(frontCam,pipes,'balls').start()
-#backProcessor = BucketProcessor(backCam,pipes,'nada').start()
+         'balls' : balls}
+ 
+frontProcessor = BucketProcessor(frontCam,pipes,'nada').start()
+backProcessor  = BucketProcessor(backCam,pipes,'balls').start()
 
 
 print("Waiting for BucketProcessors to start...")
 while ((frontProcessor.isStopped() == True)):
     time.sleep(0.001)
-#while ((backProcessor.isStopped() == True)):
-#    time.sleep(0.001)
+while ((backProcessor.isStopped() == True)):
+    time.sleep(0.001)
+
 print("BucketProcessors appear online!")
 
 # Loop forever displaying the images for initial testing
@@ -221,10 +189,10 @@ print("BucketProcessors appear online!")
 # LATER we will create display threads that stream the images as requested at their separate rates.
 #
 
-camera = {'frontCam' : frontCam}
-          #'backCam'  : backCam}
-processor = {'frontCam' : frontProcessor}
-             #'backCam'  : backProcessor}
+camera = {'frontCam' : frontCam,
+          'backCam'  : backCam}
+processor = {'frontCam' : frontProcessor,
+             'backCam'  : backProcessor}
 
 
         
@@ -239,13 +207,11 @@ while (display.isStopped() == True):
     #time.sleep(0.001)
 
 print("Display appears online!")
-bvTable.putString("BucketVisionState","ONLINE")
 
 runTime = 0
-bvTable.putNumber("BucketVisionTime",runTime)
 nextTime = time.time() + 1
 
-videofile = cv2.VideoWriter('FrontCam.avi',cv2.VideoWriter_fourcc('M','J','P','G'), frontCam.set_fps, (frontCam.width,frontCam.height))
+videofile = cv2.VideoWriter('BucketVision.avi',cv2.VideoWriter_fourcc('M','J','P','G'), frontCam.set_fps, (frontCam.width,frontCam.height))
 
 last_count = 0
 record = False
@@ -255,20 +221,13 @@ context = zmq.Context()
 socket = context.socket(zmq.PUB)
 socket.connect('tcp://localhost:5555')
 
+mode = 'frontCam'
 
 while (True):
 
     if (time.time() > nextTime):
         nextTime = nextTime + 1
         runTime = runTime + 1
-        bvTable.putNumber("BucketVisionTime",runTime)
-
-##    if (frontCamMode.value == 'gearLift'):
-##        frontProcessor.updateSelection('gearLift')
-##        frontCam.updateExposure(FRONT_CAM_GEAR_EXPOSURE)
-##    elif (frontCamMode.value == 'Boiler'):
-##        frontProcessor.updateSelection(alliance.value + "Boiler")
-##        frontCam.updateExposure(FRONT_CAM_NORMAL_EXPOSURE)
 
     if (type(display.frame) != type(None)):
         if (last_count != display.count):
@@ -289,9 +248,17 @@ while (True):
         elif key == ord('t'):
             stream = not stream
             print("STREAMING = ", stream)
+        elif key == ord('0'):
+            mode = 'frontCam'
+            display.setmode(mode)
+        elif key == ord('1'):
+            mode = 'backCam'
+            display.setmode(mode)
         else:
-            frontCam.processUserCommand(key)
-        
+            if (mode == 'frontCam'):
+                frontCam.processUserCommand(key)
+            else:
+                backCam.processUserCommand(key)        
 
         
 # NOTE: NOTE: NOTE:
