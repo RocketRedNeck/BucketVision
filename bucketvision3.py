@@ -47,10 +47,10 @@ parser = argparse.ArgumentParser()
 # Specify with "py bucketvision3.py -ip <viewer address> -p <viewer port> "
 # viewer address = localhost (default)
 # viewer port = 5555 (default)
-parser.add_argument('-ip', '--ip-address', required=False, default='localhost', 
+parser.add_argument('--address', required=False, default='localhost', 
 help='IP Address Of Viewer')
-parser.add_argument('-p', '--port', required=False, default='5555', 
-help='IP Address Of Viewer')
+parser.add_argument('--port', required=False, default='5555', 
+help='Port for Sending to Viewer')
 
 # Parse the args
 args = vars(parser.parse_args())
@@ -89,6 +89,11 @@ from findballs import FindBalls
 
 # And so it begins
 print("Starting BUCKET VISION!")
+
+context = zmq.Context()
+socket = context.socket(zmq.PUB)
+socket.connect('tcp://'+args['address']+':'+args['port'])
+
 
 # Auto updating listener should be good for avoiding the need to poll for value explicitly
 # A ChooserControl is also another option
@@ -216,10 +221,6 @@ videofile = cv2.VideoWriter('BucketVision.avi',cv2.VideoWriter_fourcc('M','J','P
 last_count = 0
 record = False
 stream = False
-
-context = zmq.Context()
-socket = context.socket(zmq.PUB)
-socket.connect('tcp://localhost:5555')
 
 mode = 'frontCam'
 
