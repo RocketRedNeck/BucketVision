@@ -56,10 +56,10 @@ img2 = cv2.imread('rightPic.jpg', cv2.IMREAD_GRAYSCALE)
 print(img2.shape)
 
 # Initiate SIFT detector
-sift = cv2.xfeatures2d.SIFT_create()
+## TODO: sift = cv2.xfeatures2d.SIFT_create()
 # Create SURF object. You can specify params here or later.
 # Here I set Hessian Threshold to 400
-surf = cv2.xfeatures2d.SURF_create(400)
+##surf = cv2.xfeatures2d.SURF_create(400)
 # Initiate ORB detector
 orb = cv2.ORB_create()
 
@@ -72,12 +72,12 @@ starttime = time.time()
 #kp1, des1 = sift.detectAndCompute(img1,None)
 #kp2, des2 = sift.detectAndCompute(img2,None)
 
-kp1, des1 = surf.detectAndCompute(img1,None)
-kp2, des2 = surf.detectAndCompute(img2,None)
+##kp1, des1 = surf.detectAndCompute(img1,None)
+##kp2, des2 = surf.detectAndCompute(img2,None)
 
 # find the keypoints and descriptors with ORB
-#kp1, des1 = orb.detectAndCompute(img1,None)
-#kp2, des2 = orb.detectAndCompute(img2,None)
+kp1, des1 = orb.detectAndCompute(img1,None)
+kp2, des2 = orb.detectAndCompute(img2,None)
 
 #FLANN_INDEX_KDTREE = 0
 #
